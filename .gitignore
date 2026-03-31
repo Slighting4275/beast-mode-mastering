@@ -14,3 +14,7 @@ venv/
 *.m4a
 *.zip
 .DS_Store
+beast_mode_fix_*
+beast_mode_export_button_fix_*
+beast_mode_export_dialog_fix_*
+repo_update_*

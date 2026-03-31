@@ -105,6 +105,19 @@ class MasterParams:
         return {k: getattr(self, k) / 100.0 for k in self.__annotations__.keys()}
 
 
+def sanitize_preview_params(params: MasterParams) -> MasterParams:
+    p = MasterParams(**asdict(params))
+    p.brightness = min(p.brightness, 62.0)
+    p.clarity = min(p.clarity, 62.0)
+    p.width = min(p.width, 65.0)
+    p.depth = min(p.depth, 12.0)
+    p.loudness = min(p.loudness, 26.0)
+    p.harmonics = min(p.harmonics, 10.0)
+    p.punch = min(p.punch, 22.0)
+    p.dynamic_range = max(p.dynamic_range, 78.0)
+    return p
+
+
 # -------------------------- Classic fallback engine -------------------------- #
 
 class ClassicFallbackProcessor:
@@ -133,7 +146,7 @@ class ClassicFallbackProcessor:
             + (p["vocal_presence"] - 0.5) * 1.0 * presence
             + (p["clarity"] - 0.5) * 0.9 * clarity
         )
-        mask = np.clip(mask, 0.3, 3.0)
+        mask = np.clip(mask, 0.75, 1.35)
         y[:, 0] = np.fft.irfft(spec_l * mask, n=n)[: len(y)].astype(np.float32)
         y[:, 1] = np.fft.irfft(spec_r * mask, n=n)[: len(y)].astype(np.float32)
 
@@ -148,12 +161,12 @@ class ClassicFallbackProcessor:
                 hp[i] = cur - prev_x + alpha * prev_y
                 prev_x = cur
                 prev_y = hp[i]
-            y = y + hp * (0.4 * p["punch"])
+            y = y + hp * (0.12 * p["punch"])
 
         # Width in mid/side.
         mid = 0.5 * (y[:, 0] + y[:, 1])
         side = 0.5 * (y[:, 0] - y[:, 1])
-        side *= 0.4 + 1.4 * p["width"]
+        side *= 0.85 + 0.45 * p["width"]
         y = np.stack([mid + side, mid - side], axis=1).astype(np.float32)
 
         # Ambience with a tiny short reverb.
@@ -162,10 +175,10 @@ class ClassicFallbackProcessor:
             for delay, gain in [(int(self.sr * 0.021), 0.24), (int(self.sr * 0.039), 0.18), (int(self.sr * 0.053), 0.12)]:
                 if delay < len(y):
                     wet[delay:] += y[:-delay] * gain
-            y = y * (1.0 - 0.25 * p["depth"]) + wet * (0.35 * p["depth"])
+            y = y * (1.0 - 0.12 * p["depth"]) + wet * (0.18 * p["depth"])
 
         # Harmonics and loudness.
-        drive = 1.0 + 1.2 * p["harmonics"] + 0.5 * p["loudness"]
+        drive = 1.0 + 0.35 * p["harmonics"] + 0.15 * p["loudness"]
         y = np.tanh(y * drive).astype(np.float32)
 
         # Dynamic range: higher value preserves more dynamics.
@@ -175,8 +188,8 @@ class ClassicFallbackProcessor:
         y = np.sign(y) * (np.minimum(np.abs(y), thresh) + over * (0.15 + 0.5 * dyn_keep))
 
         # Output gain.
-        y *= (0.8 + 0.8 * p["loudness"])
-        y = np.tanh(y)
+        y *= (0.90 + 0.18 * p["loudness"])
+        y = np.clip(y, -0.98, 0.98)
 
         peak = float(np.max(np.abs(y)) + 1e-12)
         rms = float(np.sqrt(np.mean(y ** 2)) + 1e-12)
@@ -225,7 +238,7 @@ class NeuralMasteringPipeline:
                 clarity_band = tf.exp(-0.5 * tf.square((f - 0.16) / 0.07))
                 vocal_band = tf.exp(-0.5 * tf.square((f - 0.20) / 0.06))
                 mask = 1.0 + warmth * 1.0 * low + brightness * 1.2 * air + clarity * 0.9 * clarity_band + vocal * 1.1 * vocal_band
-                mask = tf.clip_by_value(mask, 0.35, 3.0)
+                mask = tf.clip_by_value(mask, 0.75, 1.35)
                 mag2 = mag * mask[tf.newaxis, :]
                 comp = tf.complex(tf.cos(phase), tf.sin(phase)) * tf.cast(mag2, tf.complex64)
                 y = tf.signal.inverse_stft(
@@ -248,7 +261,7 @@ class NeuralMasteringPipeline:
             # Mid/side width.
             width = c[4] / 100.0
             mid = 0.5 * (y[:, 0] + y[:, 1])
-            side = 0.5 * (y[:, 0] - y[:, 1]) * (0.35 + 1.55 * width)
+            side = 0.5 * (y[:, 0] - y[:, 1]) * (0.85 + 0.45 * width)
             y = tf.stack([mid + side, mid - side], axis=-1)
 
             # Depth / ambience.
@@ -258,8 +271,8 @@ class NeuralMasteringPipeline:
                     shifted = tf.pad(sig[:-delay], [[delay, 0]]) if delay > 0 else sig
                     return sig + shifted * gain
                 y = tf.stack([
-                    add_delay(y[:, 0], 1000, 0.18 * depth) + add_delay(y[:, 0], 1800, 0.12 * depth),
-                    add_delay(y[:, 1], 1200, 0.18 * depth) + add_delay(y[:, 1], 2100, 0.12 * depth),
+                    add_delay(y[:, 0], 1000, 0.08 * depth) + add_delay(y[:, 0], 1800, 0.05 * depth),
+                    add_delay(y[:, 1], 1200, 0.08 * depth) + add_delay(y[:, 1], 2100, 0.05 * depth),
                 ], axis=-1)
 
             # Punch / harmonic excitation / macro compression.
@@ -267,11 +280,10 @@ class NeuralMasteringPipeline:
             harm = c[8] / 100.0
             loud = c[6] / 100.0
             dyn = c[7] / 100.0
-            alpha = 0.94
-            hp0 = tf.concat([[y[0, 0]], y[1:, 0] - y[:-1, 0] + alpha * y[:-1, 0]], axis=0)
-            hp1 = tf.concat([[y[0, 1]], y[1:, 1] - y[:-1, 1] + alpha * y[:-1, 1]], axis=0)
-            y = y + tf.stack([hp0, hp1], axis=-1) * (0.18 * punch)
-            y = tf.math.tanh(y * (1.0 + 1.6 * harm + 0.8 * loud))
+            hp0 = tf.concat([y[0:1, 0], y[1:, 0] - y[:-1, 0]], axis=0)
+            hp1 = tf.concat([y[0:1, 1], y[1:, 1] - y[:-1, 1]], axis=0)
+            y = y + tf.stack([hp0, hp1], axis=-1) * (0.06 * punch)
+            y = tf.math.tanh(y * (1.0 + 0.45 * harm + 0.18 * loud))
 
             # Soft dynamic-range shaping.
             dyn_keep = dyn
@@ -279,7 +291,7 @@ class NeuralMasteringPipeline:
             ay = tf.abs(y)
             over = tf.nn.relu(ay - thresh)
             y = tf.sign(y) * (tf.minimum(ay, thresh) + over * (0.12 + 0.55 * dyn_keep))
-            y = tf.math.tanh(y * (0.9 + 1.2 * loud))
+            y = tf.clip_by_value(y * (0.92 + 0.16 * loud), -0.98, 0.98)
             return y[tf.newaxis, ...]
 
         self._infer_graph = default_graph
@@ -425,7 +437,10 @@ class NeuralChunkWorker:
         key = (idx, gen)
         try:
             segment, chunk_start, chunk_end, left_pad, right_pad = self._segment_for_chunk(idx)
-            processed = self.pipeline.process_segment(segment, params)
+            if self.pipeline.available or self.pipeline.external_model is not None:
+                processed = self.pipeline.process_segment(segment, params)
+            else:
+                processed = self.fallback.process_block(segment, params)
             start = left_pad
             stop = start + (chunk_end - chunk_start)
             trimmed = processed[start:stop]
@@ -667,9 +682,13 @@ class AudioEngine(QObject):
 
     def pause(self) -> None:
         self.is_playing = False
+        if self.stream is not None and self.stream.active:
+            self.stream.stop()
 
     def stop(self) -> None:
         self.is_playing = False
+        if self.stream is not None and self.stream.active:
+            self.stream.stop()
         self.position = 0
         self.position_changed.emit(0.0)
 
@@ -681,6 +700,33 @@ class AudioEngine(QObject):
         finally:
             self.stream = None
             self.is_playing = False
+
+    def render_mastered_full(self) -> np.ndarray:
+        if self.audio is None:
+            raise RuntimeError("No audio loaded.")
+
+        total = len(self.audio)
+        pieces = []
+
+        for start in range(0, total, DEFAULT_CHUNK):
+            stop = min(start + DEFAULT_CHUNK, total)
+            if self.use_mastered:
+                piece = self._get_mastered_range(start, stop)
+            else:
+                piece = self.audio[start:stop]
+            pieces.append(piece.astype(np.float32))
+
+        if not pieces:
+            return np.zeros((0, 2), dtype=np.float32)
+
+        y = np.concatenate(pieces, axis=0)
+        return np.clip(y, -0.98, 0.98).astype(np.float32)
+
+    def export_mastered_wav(self, path: str) -> None:
+        if self.audio is None:
+            raise RuntimeError("No audio loaded.")
+        mastered = self.render_mastered_full()
+        sf.write(path, mastered, self.sr, subtype="PCM_24")
 
     def _prefetch_around_position(self, force_first: bool = False) -> None:
         if self.audio is None or not self.use_mastered:
@@ -746,14 +792,12 @@ class AudioEngine(QObject):
         else:
             outdata[:] = block
             self.position = stop
-            self.position_changed.emit(self.position / float(len(self.audio)))
 
         self._prefetch_around_position()
         peak = float(np.max(np.abs(block)) + 1e-12)
         rms = float(np.sqrt(np.mean(block ** 2)) + 1e-12)
         self._meter_peak = linear_to_db(peak)
         self._meter_lufs = -0.691 + 10.0 * math.log10(max(rms * rms, 1e-12))
-        self.meters_changed.emit(self._meter_lufs, self._meter_peak)
 
 
 # ------------------------------ GUI widgets ------------------------------ #
@@ -926,12 +970,13 @@ class MainWindow(QMainWindow):
         self.play_btn = QPushButton("Play")
         self.pause_btn = QPushButton("Pause")
         self.stop_btn = QPushButton("Stop")
+        self.export_btn = QPushButton("Export WAV")
         self.original_btn = QPushButton("ORIGINAL")
         self.original_btn.setCheckable(True)
         self.mastered_btn = QPushButton("MASTERED")
         self.mastered_btn.setCheckable(True)
         self.mastered_btn.setChecked(True)
-        for b in [self.load_btn, self.load_model_btn, self.analyze_btn, self.play_btn, self.pause_btn, self.stop_btn, self.original_btn, self.mastered_btn]:
+        for b in [self.load_btn, self.load_model_btn, self.analyze_btn, self.play_btn, self.pause_btn, self.stop_btn, self.export_btn, self.original_btn, self.mastered_btn]:
             tgl.addWidget(b)
         left.addWidget(transport_group)
 
@@ -973,6 +1018,7 @@ class MainWindow(QMainWindow):
         self.play_btn.clicked.connect(self.engine.play)
         self.pause_btn.clicked.connect(self.engine.pause)
         self.stop_btn.clicked.connect(self.engine.stop)
+        self.export_btn.clicked.connect(self.export_wav)
         self.original_btn.clicked.connect(self._switch_original)
         self.mastered_btn.clicked.connect(self._switch_mastered)
         self.waveform.seek_requested.connect(self.engine.seek_ratio)
@@ -1035,7 +1081,44 @@ class MainWindow(QMainWindow):
         self.analysis_status.setText("Analyzing spectrum, dynamics, stereo field, transients, and vocal band…")
         self.analyzer.analyze_async(self.engine.audio, self.engine.sr)
 
+    def export_wav(self):
+        if self.engine.audio is None:
+            QMessageBox.information(self, "No audio", "Load an audio file first.")
+            return
+
+        self.analysis_status.setText("Choose where to save the mastered WAV...")
+
+        dialog = QFileDialog(self, "Export mastered WAV", str(Path.home()))
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setNameFilter("WAV Files (*.wav);;All Files (*)")
+        dialog.selectFile("mastered.wav")
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+
+        if dialog.exec() == 0:
+            self.analysis_status.setText("Export cancelled.")
+            return
+
+        selected = dialog.selectedFiles()
+        if not selected:
+            self.analysis_status.setText("Export cancelled.")
+            return
+
+        path = selected[0]
+        if not path.lower().endswith(".wav"):
+            path = f"{path}.wav"
+
+        try:
+            self.analysis_status.setText("Rendering mastered WAV for export...")
+            self.engine.export_mastered_wav(path)
+            self.analysis_status.setText(f"Export complete: {path}")
+            QMessageBox.information(self, "Export complete", f"Saved mastered WAV:\n{path}")
+        except Exception as exc:
+            self.analysis_status.setText(f"Export failed: {exc}")
+            QMessageBox.critical(self, "Export failed", str(exc))
+
     def _analysis_ready(self, result: dict, params: MasterParams):
+        params = sanitize_preview_params(params)
         for name, value in asdict(params).items():
             self.controls[name].set_value(value)
         self.engine.set_master_params(params)
@@ -1077,6 +1160,11 @@ class MainWindow(QMainWindow):
 
     def _refresh_transport(self):
         self.transport_label.setText(f"{self._fmt(self.engine.current_time_seconds())} / {self._fmt(self.engine.duration_seconds())}")
+        if self.engine.audio is not None and len(self.engine.audio) > 0:
+            self.waveform.set_playhead(self.engine.position / float(len(self.engine.audio)))
+        else:
+            self.waveform.set_playhead(0.0)
+        self._update_meters(self.engine._meter_lufs, self.engine._meter_peak)
 
     @staticmethod
     def _fmt(sec: float) -> str:
