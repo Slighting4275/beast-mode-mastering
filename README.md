@@ -4,11 +4,11 @@ AI-powered Linux desktop audio mastering assistant for Linux, built with PyQt6, 
 
 This repository is a frozen working snapshot of the current Linux desktop mastering assistant. The goal of this project is to provide a Linux-first audio mastering tool that people can run locally, inspect, improve, and extend. The project already works as a real application, but it is still a prototype in important areas, especially mastering quality, contributor polish, and long-term AI direction.
 
-## Application screenshot
-
-> Put the screenshot file in the repo at `docs/images/beast-mode-mastering-main-window.png` so the image below renders correctly on GitHub.
+## Application screenshots
 
 ![Beast Mode Mastering main window](docs/images/beast-mode-mastering-main-window.png)
+
+![Beast Mode Mastering with audio loaded](docs/images/beast-mode-mastering-loaded-track.png)
 
 ## What this application is
 
@@ -91,6 +91,7 @@ Main parts of the repository:
 - `scripts/uninstall_desktop_integration.sh` — removes the desktop launcher, menu entry, and icon files
 - `assets/icons/beast-mode-mastering.svg` — source icon artwork for launcher and menu integration
 - `docs/BUILD_LINUX.md` — distro-specific build and run notes
+- `docs/images/` — README screenshots and other repo image assets
 - `freeze/FREEZE_NOTES_2026-03-30.md` — snapshot notes
 - `freeze/SHA256SUMS.txt` — hash manifest for the freeze
 
@@ -611,13 +612,13 @@ python scripts/export_mastered_cli.py "$HOME/Music/input.wav" "$HOME/Music/outpu
 
 ## Screenshots
 
-The repository now includes a main-window screenshot.
+The repository now includes screenshots for:
 
-If you add the file to the repo at `docs/images/beast-mode-mastering-main-window.png`, the screenshot near the top of this README will render on GitHub.
+- the main application window
+- the interface with a loaded track displayed in the waveform view
 
 More useful screenshots to add later:
 
-- waveform and transport controls with an actual loaded track
 - analysis results after auto-set
 - original vs mastered A/B view
 - export flow and save dialog
