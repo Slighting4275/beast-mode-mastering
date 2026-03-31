@@ -1,8 +1,14 @@
 # Beast Mode Mastering
 
-AI-powered Linux desktop audio mastering assistant for Linux, built with PyQt6, featuring TensorFlow-assisted track analysis, real-time mastering preview, stable DSP processing, waveform visualization, transport controls, original-versus-mastered A/B comparison, and 24-bit WAV export.
+AI-powered Linux desktop audio mastering assistant for Linux, built with PyQt6, featuring TensorFlow-assisted track analysis, real-time mastering preview, stable DSP processing, waveform visualization, transport controls, original-versus-mastered A/B comparison, GUI WAV export, command-line WAV export, and optional Linux desktop launcher integration.
 
 This repository is a frozen working snapshot of the current Linux desktop mastering assistant. The goal of this project is to provide a Linux-first audio mastering tool that people can run locally, inspect, improve, and extend. The project already works as a real application, but it is still a prototype in important areas, especially mastering quality, contributor polish, and long-term AI direction.
+
+## Application screenshot
+
+> Put the screenshot file in the repo at `docs/images/beast-mode-mastering-main-window.png` so the image below renders correctly on GitHub.
+
+![Beast Mode Mastering main window](docs/images/beast-mode-mastering-main-window.png)
 
 ## What this application is
 
@@ -19,7 +25,9 @@ Current status of this freeze:
 - playback preview works
 - original vs mastered A/B comparison works
 - the current active rendering path is the stable DSP path
-- WAV export works
+- GUI WAV export works
+- command-line WAV export works
+- optional desktop launcher / applications-menu integration is included
 - the app still includes TensorFlow-related plumbing
 - the app is not yet a trained checkpoint-driven commercial mastering engine
 - DDSP is intentionally not a required runtime dependency in this freeze
@@ -38,8 +46,9 @@ The following parts are currently working in the freeze:
 - waveform display
 - transport controls
 - stable DSP mastering path
-- 24-bit WAV export
-- command-line export path
+- 24-bit WAV export from the GUI
+- 24-bit WAV export from the command-line path
+- Linux desktop launcher / applications-menu integration scripts
 - Linux-focused developer workflow
 
 ## What is still rough
@@ -53,7 +62,7 @@ The following areas still need work:
 - the current DSP path favors stability over aggressive mastering
 - the UI still needs polish
 - more Linux distro testing is needed
-- screenshots and demo media are still missing
+- more screenshots and demo media are still needed
 - contributor docs still need improvement
 - logging and diagnostics need work
 
@@ -78,6 +87,9 @@ Main parts of the repository:
 
 - `src/beast_mode_mastering/app.py` — main GUI application
 - `scripts/export_mastered_cli.py` — reliable non-GUI exporter
+- `scripts/install_desktop_integration.sh` — installs a desktop launcher, menu entry, and icon files for Linux
+- `scripts/uninstall_desktop_integration.sh` — removes the desktop launcher, menu entry, and icon files
+- `assets/icons/beast-mode-mastering.svg` — source icon artwork for launcher and menu integration
 - `docs/BUILD_LINUX.md` — distro-specific build and run notes
 - `freeze/FREEZE_NOTES_2026-03-30.md` — snapshot notes
 - `freeze/SHA256SUMS.txt` — hash manifest for the freeze
@@ -94,6 +106,7 @@ This project is a Python application. On Linux, the practical build path is:
 6. install the Python requirements with `pip`
 7. install the project itself into that environment
 8. launch the app
+9. optionally install the desktop launcher and applications-menu entry
 
 If you are new to Linux development, do not overthink the word "build" here. For this project, "build" mostly means getting the right Linux packages installed and getting the Python environment set up correctly.
 
@@ -344,6 +357,35 @@ python -m beast_mode_mastering.app
 
 If the GUI opens, the setup worked.
 
+## Optional desktop launcher / applications menu setup on Linux Mint / Ubuntu / Debian
+
+If you want the desktop launcher, applications-menu entry, and icon install script, install the extra packages for that path:
+
+```bash
+sudo apt update
+sudo apt install -y librsvg2-bin desktop-file-utils
+```
+
+Then from the project root, run:
+
+```bash
+bash ./scripts/install_desktop_integration.sh
+```
+
+That installs:
+
+- `~/.local/bin/beast-mode-mastering`
+- `~/.local/share/applications/beast-mode-mastering.desktop`
+- icon files under `~/.local/share/icons/hicolor/`
+
+After that, the app should appear in the applications menu as **Beast Mode Mastering**.
+
+If you want to remove that desktop integration later, run:
+
+```bash
+bash ./scripts/uninstall_desktop_integration.sh
+```
+
 ## Fedora build instructions
 
 This section is for Fedora.
@@ -537,6 +579,18 @@ If that prints `import OK`, try launching the GUI:
 python -m beast_mode_mastering.app
 ```
 
+## GUI export
+
+The GUI now includes an **Export WAV** button.
+
+Normal GUI export flow:
+
+1. launch the app
+2. load an audio file
+3. click **Export WAV**
+4. choose the output path and filename in the save dialog
+5. save the mastered 24-bit WAV
+
 ## CLI export
 
 The project also includes a command-line export path.
@@ -557,15 +611,17 @@ python scripts/export_mastered_cli.py "$HOME/Music/input.wav" "$HOME/Music/outpu
 
 ## Screenshots
 
-Screenshots still need to be added to this repo.
+The repository now includes a main-window screenshot.
 
-The most useful screenshots to add are:
+If you add the file to the repo at `docs/images/beast-mode-mastering-main-window.png`, the screenshot near the top of this README will render on GitHub.
 
-- the main application window
-- waveform and transport controls
-- analysis and mastering controls
+More useful screenshots to add later:
+
+- waveform and transport controls with an actual loaded track
+- analysis results after auto-set
 - original vs mastered A/B view
-- export flow
+- export flow and save dialog
+- desktop launcher and applications-menu entry
 
 ## What I want help with
 
@@ -585,7 +641,7 @@ Good contribution areas right now include:
 
 Good GitHub issues to open for contributors:
 
-- improve README with screenshots and contributor guidance
+- improve README with more screenshots and contributor guidance
 - fix GUI export edge cases
 - refactor playback and file reload state handling
 - improve DSP mastering quality
@@ -594,7 +650,8 @@ Good GitHub issues to open for contributors:
 - add better logging for playback and export failures
 - test on Arch, Ubuntu/Debian, and Fedora
 - design learned controller to replace heuristic auto-set
-- add screenshots and demo section to the repo
+- add more screenshots and demo section to the repo
+- improve desktop integration documentation across distros
 
 ## Troubleshooting
 
@@ -640,6 +697,21 @@ If the GUI opens but playback does not work, confirm that:
 - your Linux audio stack works normally outside this app
 - your user account has a valid default output device
 
+### Desktop launcher or icon issues
+
+If the app runs but the applications-menu entry or icon does not show correctly, confirm that:
+
+- you ran `bash ./scripts/install_desktop_integration.sh` from the project root
+- on Debian / Ubuntu / Linux Mint, `librsvg2-bin` and `desktop-file-utils` are installed
+- the desktop file exists at `~/.local/share/applications/beast-mode-mastering.desktop`
+- the icon files exist under `~/.local/share/icons/hicolor/`
+
+If needed, rerun:
+
+```bash
+bash ./scripts/install_desktop_integration.sh
+```
+
 ### Import path problems
 
 Run commands from the repository root and make sure the local package was installed into the active virtual environment.
@@ -662,6 +734,8 @@ Small and focused pull requests are preferred. If you want to make a bigger chan
 ## Packaging notes
 
 This is a Python application. On Linux, the practical "compile" step is installing the required system libraries, creating a Python environment, installing dependencies, and then installing the local project package into that environment.
+
+The repo also includes optional Linux desktop integration scripts for users who want the app to appear in the applications menu with an installed launcher and icon.
 
 ## License
 

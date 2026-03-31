@@ -16,6 +16,7 @@ This project is a Python desktop application for Linux. In normal Linux terms, t
 6. install the Python dependencies with `pip`
 7. install the local project package into that virtual environment
 8. run the application
+9. optionally install the desktop launcher and applications-menu integration
 
 If you follow the steps in order, you should end up with a working Linux installation of the project.
 
@@ -55,6 +56,7 @@ The project expects these things to exist on your Linux system:
 - `libsndfile`
 - FFmpeg command-line tools
 - a basic C/C++ toolchain in case a Python package needs to build a fallback wheel locally
+- optional desktop integration tools if you want the launcher, applications-menu entry, and icon install script to render PNG icon sizes correctly
 
 ---
 
@@ -91,6 +93,7 @@ No matter which distro you are on, the process is basically:
 - install Python requirements
 - install the local package with `pip install -e .`
 - launch the app
+- optionally install the desktop launcher and applications-menu entry
 
 ---
 
@@ -521,6 +524,69 @@ python -m beast_mode_mastering.app
 
 If the GUI opens, your setup is working.
 
+# Optional desktop launcher / applications menu integration
+
+The repository now includes desktop-integration files for Linux:
+
+- `assets/icons/beast-mode-mastering.svg`
+- `scripts/install_desktop_integration.sh`
+- `scripts/uninstall_desktop_integration.sh`
+
+This is optional. The normal Python setup and `python -m beast_mode_mastering.app` launch path still works without it.
+
+## Linux Mint / Ubuntu / Debian extra packages for desktop integration
+
+If you want the install script to render multiple PNG icon sizes and refresh the applications menu cleanly, install:
+
+```bash
+sudo apt update
+sudo apt install -y librsvg2-bin desktop-file-utils
+```
+
+On other distros, install the distro-equivalent packages that provide `rsvg-convert` and `update-desktop-database`.
+
+## Install the desktop launcher and menu entry
+
+From the project root, run:
+
+```bash
+bash ./scripts/install_desktop_integration.sh
+```
+
+That installs:
+
+- a launcher command in `~/.local/bin/beast-mode-mastering`
+- a desktop file in `~/.local/share/applications/beast-mode-mastering.desktop`
+- the app icon in `~/.local/share/icons/hicolor/`
+
+After that, the app should appear in the applications menu as **Beast Mode Mastering**.
+
+You can also launch it directly with:
+
+```bash
+"$HOME/.local/bin/beast-mode-mastering"
+```
+
+## Remove the desktop launcher and menu entry
+
+If you want to remove the desktop integration later, run:
+
+```bash
+bash ./scripts/uninstall_desktop_integration.sh
+```
+
+# GUI WAV export
+
+The GUI now includes an **Export WAV** button.
+
+Normal GUI export flow:
+
+1. launch the app
+2. load an audio file
+3. click **Export WAV**
+4. choose the output directory and filename in the save dialog
+5. save the mastered 24-bit WAV
+
 # CLI export
 
 The project also includes a command-line export path.
@@ -632,6 +698,21 @@ If the GUI opens but playback does not work correctly, confirm:
 - PortAudio was installed correctly
 - your Linux audio stack works normally outside the app
 - your user account has a valid default output device
+
+## Desktop launcher or icon issues
+
+If the app runs but the applications-menu entry or icon does not show correctly, check all of the following:
+
+- you ran `bash ./scripts/install_desktop_integration.sh` from the project root
+- on Debian / Ubuntu / Linux Mint, `librsvg2-bin` and `desktop-file-utils` are installed
+- the desktop file exists at `~/.local/share/applications/beast-mode-mastering.desktop`
+- the icon files exist under `~/.local/share/icons/hicolor/`
+
+If needed, rerun:
+
+```bash
+bash ./scripts/install_desktop_integration.sh
+```
 
 ## FFmpeg-related confusion
 
