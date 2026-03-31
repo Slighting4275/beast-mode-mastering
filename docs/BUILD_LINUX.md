@@ -2,7 +2,7 @@
 
 # Beast Mode Mastering Linux Build and Run Guide
 
-This file is the step-by-step Linux setup guide for Beast Mode Mastering.
+This file is the corrected step-by-step Linux setup guide for Beast Mode Mastering.
 
 This guide is written for people who want extremely clear instructions and do not want to guess what to install, where to go, or what to type.
 
@@ -14,9 +14,32 @@ This project is a Python desktop application for Linux. In normal Linux terms, t
 4. create a Python virtual environment
 5. activate that virtual environment
 6. install the Python dependencies with `pip`
-7. run the application
+7. install the local project package into that virtual environment
+8. run the application
 
 If you follow the steps in order, you should end up with a working Linux installation of the project.
+
+---
+
+# Important correction
+
+This repository uses a `src/` layout.
+
+That means this step is required:
+
+```bash
+python -m pip install -e .
+```
+
+If you skip that step, the dependencies may install correctly, but Python still will not be able to import the local package `beast_mode_mastering`, and launching the app with:
+
+```bash
+python -m beast_mode_mastering.app
+```
+
+will fail with `ModuleNotFoundError`.
+
+On Linux Mint and some other systems, especially when `pyenv` is installed, the bare `python` command may not work before the virtual environment is active. On those systems, use `python3 -m venv .venv` to create the environment.
 
 ---
 
@@ -66,6 +89,7 @@ No matter which distro you are on, the process is basically:
 - create `.venv`
 - activate `.venv`
 - install Python requirements
+- install the local package with `pip install -e .`
 - launch the app
 
 ---
@@ -114,9 +138,10 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
-On some distros, `python` may be the main Python command instead of `python3`. If your distro uses `python` for Python 3, that is fine. The important part is that the virtual environment gets created successfully.
+On some distros, `python` may be the main Python command instead of `python3`. If your distro uses `python` for Python 3, that is fine. The important part is that the virtual environment gets created successfully. On Linux Mint systems where `pyenv` interferes with `python`, use `python3 -m venv .venv` exactly as written above.
 
 ---
 
@@ -194,9 +219,15 @@ Run:
 python -m pip install -r requirements.txt
 ```
 
-This may take a while the first time.
+## Step 7: install the local project package
 
-## Step 7: launch the app
+Run:
+
+```bash
+python -m pip install -e .
+```
+
+## Step 8: launch the app
 
 Run:
 
@@ -289,7 +320,15 @@ Run:
 python -m pip install -r requirements.txt
 ```
 
-## Step 8: launch the app
+## Step 8: install the local project package
+
+Run:
+
+```bash
+python -m pip install -e .
+```
+
+## Step 9: launch the app
 
 Run:
 
@@ -367,7 +406,15 @@ Run:
 python -m pip install -r requirements.txt
 ```
 
-## Step 7: launch the app
+## Step 7: install the local project package
+
+Run:
+
+```bash
+python -m pip install -e .
+```
+
+## Step 8: launch the app
 
 Run:
 
@@ -447,15 +494,21 @@ Run:
 python -m pip install -r requirements.txt
 ```
 
-## Step 8: launch the app
+## Step 8: install the local project package
+
+Run:
+
+```bash
+python -m pip install -e .
+```
+
+## Step 9: launch the app
 
 Run:
 
 ```bash
 python -m beast_mode_mastering.app
 ```
-
----
 
 # Launching the application
 
@@ -467,8 +520,6 @@ python -m beast_mode_mastering.app
 ```
 
 If the GUI opens, your setup is working.
-
----
 
 # CLI export
 
@@ -488,8 +539,6 @@ Example with home-directory paths:
 python scripts/export_mastered_cli.py "$HOME/Music/input.wav" "$HOME/Music/output_mastered.wav"
 ```
 
----
-
 # Recommended first-run check
 
 After installing dependencies, it is a good idea to verify that Python can import the project before launching the GUI.
@@ -498,6 +547,7 @@ From the project root:
 
 ```bash
 . .venv/bin/activate
+python -m pip install -e .
 python -c "import beast_mode_mastering.app; print('import OK')"
 ```
 
@@ -507,8 +557,6 @@ If that prints `import OK`, try launching the application:
 . .venv/bin/activate
 python -m beast_mode_mastering.app
 ```
-
----
 
 # Full example from zero to running
 
@@ -523,6 +571,7 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip install -e .
 python -m beast_mode_mastering.app
 ```
 
@@ -536,10 +585,9 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip install -e .
 python -m beast_mode_mastering.app
 ```
-
----
 
 # Troubleshooting
 
@@ -565,6 +613,7 @@ Check:
 
 - that `.venv` is activated
 - that requirements installed successfully
+- that the local project package was installed with `python -m pip install -e .`
 - that you are launching from the project root
 - that Python can import the app module
 
@@ -572,6 +621,7 @@ Try:
 
 ```bash
 . .venv/bin/activate
+python -m pip install -e .
 python -c "import beast_mode_mastering.app; print('import OK')"
 ```
 
@@ -580,7 +630,7 @@ python -c "import beast_mode_mastering.app; print('import OK')"
 If the GUI opens but playback does not work correctly, confirm:
 
 - PortAudio was installed correctly
-- your Linux audio stack works normally outside this app
+- your Linux audio stack works normally outside the app
 - your user account has a valid default output device
 
 ## FFmpeg-related confusion
@@ -589,19 +639,18 @@ FFmpeg is part of the expected Linux toolchain for this project. If your distro 
 
 ## Import path problems
 
-Run commands from the repository root.
+Run commands from the repository root and make sure the local package was installed into the active virtual environment.
 
 Correct:
 
 ```bash
+python -m pip install -e .
 python -m beast_mode_mastering.app
 ```
 
 Wrong:
 
-Running the app command from some unrelated directory where Python cannot see the local project package.
-
----
+Running the app command from some unrelated directory where Python cannot see the local project package, or skipping installation of the local package when using the repo’s `src/` layout.
 
 # Contributor note
 
