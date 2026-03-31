@@ -26,3 +26,9 @@ python -m beast_mode_mastering.app
 
 ## Packaging notes
 This is a Python application. On Linux, the practical "compile" step is installing the required system libraries and then creating a Python environment for the Python packages.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
+
+If you distribute modified versions of this project, you must also make the corresponding source code available under the GPL.
